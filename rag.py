@@ -13,16 +13,15 @@ from llama_index.core.agent import ReActAgent
 from llama_index.llms.openai import OpenAI
 from llama_index.core.agent.workflow import AgentWorkflow
 
-
 import asyncio
 import logging
 
 # Loads stock data
-stock_path = "PATH/stock_data.csv"  # Change this to your csv file path
+stock_path = os.path.join("data", "stock_data.csv")
 stock_df = pd.read_csv(stock_path)
 
 
-# Gives thoughts and detailed output - wrapping over df and giving interface to ask questions about population data 
+# Gives thoughts and detailed output - wrapping over df and giving interface to ask questions about population data
 stock_query_engine = PandasQueryEngine(
     df = stock_df, verbose = True, instruction_str=instruction_str
 )
@@ -32,10 +31,10 @@ stock_query_engine.update_prompts({"pandas_prompt": new_prompt})
 tools = [
         # note_engine,
         QueryEngineTool(
-            query_engine = stock_query_engine, 
+            query_engine = stock_query_engine,
             metadata = ToolMetadata(
                 name = "stock_data",
-                description = "This gives detailed information about the stock data from the csv file",
+                description = "Use this tool to query stock price data, calculate metrics, analyze trends, and get specific values from the stock dataframe. This tool is REQUIRED for any question about stock prices, volumes, or trends.",
          ),
     ),
 ]
@@ -54,7 +53,7 @@ async def main():
         prompt = input("Enter a prompt (or q to quit): ")
         if prompt.lower() == 'q':
             break
-        result = await workflow.run(prompt)
+        result = await workflow.run(prompt, max_iterations=30)
         print(result)
 
 asyncio.run(main())
