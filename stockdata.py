@@ -1,20 +1,12 @@
 import pandas as pd
 import datetime as dt
 import yfinance as yf
-import matplotlib.pyplot as plt
-from pandas_datareader import data as pdr
-import plotly.express as px
 import plotly.graph_objects as go
 import os
 
 
-# Removing existing file if it exists, before creating a new one
-filename = "stock_data.csv"
-if os.path.exists(filename):
-    os.remove(filename)
-
 # Setting up path to save the csv file
-output_directory = r"PATH"  # Change this to your desired directory
+output_directory = r"data"
 output_filename = "stock_data.csv"
 full_path = os.path.join(output_directory, output_filename)
 os.makedirs(output_directory, exist_ok=True)
@@ -45,7 +37,7 @@ def get_single_stock_data(df, ticker: str):
     return df.xs(ticker, axis=1, level=1)
 
 # Creates a plotly (interactive chart)
-def get_plot(df, years, tiecker):
+def get_plot(df, years, ticker):
     close = df["Close"]  # could be single ticker or multiple tickers
 
     fig = go.Figure()
@@ -71,11 +63,11 @@ def get_plot(df, years, tiecker):
 
 
 df = get_stock_data(years)
-df_tsla = get_single_stock_data(df, ticker)
-get_plot(df_tsla, years, ticker)
+df_stock = get_single_stock_data(df, ticker)
+get_plot(df_stock, years, ticker)
 
 # Write the DataFrame to CSV
-df_tsla.to_csv(full_path, index=False) 
+df_stock.to_csv(full_path, index=False) 
 
 print(f"DataFrame saved to: {full_path}")
 
