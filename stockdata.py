@@ -5,10 +5,10 @@ import plotly.graph_objects as go
 import os
 
 class StockDataService():
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, output_filename):
         self.output_dir = output_dir
-        output_filename = "stock_data.csv"
-        full_path = os.path.join(output_dir, output_filename)
+        self.output_filename = "stock_data.csv"
+        self.full_path = os.path.join(output_dir, output_filename)
         os.makedirs(output_dir, exist_ok=True)
     
     def get_historical_prices(self, years):
@@ -63,11 +63,11 @@ class StockDataService():
 
             fig.show()
 
-    def save_to_csv(self, df, filename):
-        return
+    def save_to_csv(self, df):
+        df.to_csv(self.full_path, index=False)
 
 def main():
-    stocks = StockDataService("data/")
+    stocks = StockDataService("data/", "stock_data.csv")
 
     years = int(input("Enter number of years to look back: "))
     ticker = input("Enter stock ticker: ")
@@ -75,6 +75,8 @@ def main():
     df = stocks.get_historical_prices(years)
     df_stock = stocks.get_stock_data(df, ticker)
     stocks.create_price_chart(df_stock, years, ticker)
+
+    stocks.save_to_csv(df_stock)
 
 if __name__ == "__main__":
     main()

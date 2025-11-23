@@ -1,7 +1,7 @@
 from llama_index.core import PromptTemplate
 
 # Tells agent what do with pandas df and how to respond
-instruction_str = """\
+INSTRUCTION_PROMPT = """\
     1. Convert the query to executable Python code using Pandas.
     2. The final line of code should be a Python expression that can be called with the `eval()` function.
     3. The code should represent a solution to the query.
@@ -11,7 +11,7 @@ instruction_str = """\
     7. The dataframe is already loaded as `df`. Do not try to read CSV files."""
 
 # Specify context for agent to know what data it is working with - templating what we want prompt to look like
-new_prompt = PromptTemplate(
+NEW_PROMPT = PromptTemplate(
     """\
     You are working with a pandas dataframe in Python.
     The name of the dataframe is `df`.
@@ -32,7 +32,7 @@ new_prompt = PromptTemplate(
 )
 
 # Context for agent to know what it is working with
-context = """Purpose: The primary role of this agent is to assist users who are aiming to be informed on different
+CONTEXT = """Purpose: The primary role of this agent is to assist users who are aiming to be informed on different
             stocks in the stock market. They want to know the price action of the stock and different metrics.
 
             IMPORTANT:
@@ -41,3 +41,14 @@ context = """Purpose: The primary role of this agent is to assist users who are 
             - For questions about future performance or whether to buy/sell, analyze historical trends and patterns,
               but clearly state that you cannot predict the future and this is not financial advice.
             - If a question requires real-time news or sentiment data that you don't have, acknowledge this limitation."""
+
+# Describes tools the agent will use
+TOOL_DESCRIPTIONS = """
+stock_data:
+  Description: Fetches historical stock market data
+  Parameters:
+    - ticker (str): Stock symbol (e.g., "AAPL", "GOOGL")
+    - period (str): Time period ("1d", "1mo", "1y")
+  Returns: DataFrame with OHLCV data
+  Use when: User asks about stock prices, trends, or metrics
+"""
