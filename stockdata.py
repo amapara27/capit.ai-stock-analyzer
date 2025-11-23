@@ -36,9 +36,60 @@ class StockDataService():
     def get_key_metrics(self, ticker):
         return
     
-    def get_stock_news(self, ticker, limit):
-        return
-    
+    def get_stock_news(self, ticker_sym):
+        ticker = yf.Ticker(ticker_sym)
+
+        news = ticker.news
+
+        rag_docs = []
+
+        for item in news:
+            content = item.get('content', {})
+        
+            url = None
+           
+            if 'canonicalUrl' in content:
+                url = content['canonicalUrl'].get('url')
+            elif 'clickThroughUrl' in content:
+                url = content['clickThroughUrl'].get('url')
+            else:
+                url = item.get('link') # Fallback to old format
+
+            title = content.get('title') if 'title' in content else item.get('title')
+            pub_time = content.get('pubDate') if 'pubDate' in content else item.get('providerPublishTime')
+            
+            if isinstance(pub_time, (int, float)):
+                readable_date = dt.fromtimestamp(pub_time).strftime('%Y-%m-%d %H:%M:%S')
+            elif isinstance(pub_time, str):
+                readable_date = pub_time # Already a string
+            else:
+                readable_date = "Unknown"
+
+            if not title or not url:
+                continue
+                
+            text_content = f"Title: {title}\nPublisher: {item.get('publisher', 'Yahoo Finance')}"
+
+            metadata = {
+            "source": "yahoo_finance",
+            "ticker": ticker_sym,
+            "url": item.get('link'),
+            "published_at": readable_date,
+            "type": item.get('type', 'news'),
+            "provider_uuid": item.get('uuid')
+            }
+
+            doc = {
+            "id": item.get('uuid'),
+            "text": text_content,
+            "metadata": metadata
+            }
+
+            rag_docs.append(doc)
+
+        return rag_docs
+
+            
     def create_price_chart(self, df, ticker, years):
             close = df["Close"]  # could be single ticker or multiple tickers
 
@@ -67,16 +118,23 @@ class StockDataService():
         df.to_csv(self.full_path, index=False)
 
 def main():
-    stocks = StockDataService("data/", "stock_data.csv")
+    service = StockDataService("data/", "stock_data.csv")
 
-    years = int(input("Enter number of years to look back: "))
-    ticker = input("Enter stock ticker: ")
+    # years = int(input("Enter number of years to look back: "))
+    # ticker = input("Enter stock ticker: ")
 
-    df = stocks.get_historical_prices(years)
-    df_stock = stocks.get_stock_data(df, ticker)
-    stocks.create_price_chart(df_stock, years, ticker)
+    # df = service.get_historical_prices(years)
+    # df_stock = service.get_stock_data(df, ticker)
+    # service.create_price_chart(df_stock, years, ticker)
 
-    stocks.save_to_csv(df_stock)
+    # service.save_to_csv(df_stock)
+
+    documents = service.get_stock_news("NVDA")
+
+    for doc in documents:
+        print(f"Content: {doc['text']}")
+        print(f"Metadata: {doc['metadata']}")
+        print("-" * 30)
 
 if __name__ == "__main__":
     main()

@@ -32,23 +32,27 @@ NEW_PROMPT = PromptTemplate(
 )
 
 # Context for agent to know what it is working with
-CONTEXT = """Purpose: The primary role of this agent is to assist users who are aiming to be informed on different
-            stocks in the stock market. They want to know the price action of the stock and different metrics.
+CONTEXT = """Purpose: The primary role of this agent is to assist users with stock market analysis.
 
-            IMPORTANT:
-            - You MUST use the stock_data tool to query the actual data before answering questions about stock prices, trends, or metrics.
-            - You can ONLY analyze historical data. You CANNOT predict future prices or guarantee profits.
-            - For questions about future performance or whether to buy/sell, analyze historical trends and patterns,
-              but clearly state that you cannot predict the future and this is not financial advice.
-            - If a question requires real-time news or sentiment data that you don't have, acknowledge this limitation."""
+IMPORTANT RULES:
+1. You MUST use the parse_stock_data tool to query actual data before answering ANY question about stock prices, trends, or metrics.
+2. After getting data from the tool, provide a DETAILED and HELPFUL response that:
+   - States the actual values/numbers returned
+   - Explains what those numbers mean in context
+   - Provides relevant insights (e.g., if asking about average price, compare to recent prices)
+3. You can ONLY analyze historical data. You CANNOT predict future prices.
+4. Always state that this is not financial advice.
 
-# Describes tools the agent will use
+RESPONSE FORMAT:
+- Be specific with numbers (e.g., "The average closing price is $149.28" not just "149.28")
+- Provide context (e.g., "This is 5% higher than the lowest price of $142.10")
+- Keep responses conversational and informative"""
+
+# Describes tools the agent will use (only include implemented tools)
 TOOL_DESCRIPTIONS = """
-stock_data:
-  Description: Fetches historical stock market data
-  Parameters:
-    - ticker (str): Stock symbol (e.g., "AAPL", "GOOGL")
-    - period (str): Time period ("1d", "1mo", "1y")
-  Returns: DataFrame with OHLCV data
-  Use when: User asks about stock prices, trends, or metrics
+parse_stock_data:
+  Description: Queries the loaded stock price DataFrame using natural language
+  Input: Natural language question about the stock data
+  Returns: Query results from the DataFrame (columns: Date, Open, High, Low, Close, Volume)
+  Use when: User asks about stock prices, trends, volume, or metrics
 """
