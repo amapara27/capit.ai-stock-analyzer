@@ -1,1 +1,23 @@
-/data/stock_data.csv
+# Environment
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Data files
+/data/
+*.csv
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
