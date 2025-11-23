@@ -32,12 +32,12 @@ new_prompt = PromptTemplate(
 )
 
 # Context for agent to know what it is working with
-context = """Purpose: The primary role of this agent is to assist users who are aiming to be informed on different 
-            stocks in the stock market. They want to know the price action of the stock and different metrics. 
-            
-            IMPORTANT: 
+context = """Purpose: The primary role of this agent is to assist users who are aiming to be informed on different
+            stocks in the stock market. They want to know the price action of the stock and different metrics.
+
+            IMPORTANT:
             - You MUST use the stock_data tool to query the actual data before answering questions about stock prices, trends, or metrics.
             - You can ONLY analyze historical data. You CANNOT predict future prices or guarantee profits.
-            - For questions about future performance or whether to buy/sell, analyze historical trends and patterns, 
+            - For questions about future performance or whether to buy/sell, analyze historical trends and patterns,
               but clearly state that you cannot predict the future and this is not financial advice.
             - If a question requires real-time news or sentiment data that you don't have, acknowledge this limitation."""

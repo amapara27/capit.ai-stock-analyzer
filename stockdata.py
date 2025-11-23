@@ -4,76 +4,77 @@ import yfinance as yf
 import plotly.graph_objects as go
 import os
 
+class StockDataService():
+    def __init__(self, output_dir):
+        self.output_dir = output_dir
+        output_filename = "stock_data.csv"
+        full_path = os.path.join(output_dir, output_filename)
+        os.makedirs(output_dir, exist_ok=True)
+    
+    def get_historical_prices(self, years):
+        # Sets start and end dates for historical stock data
+        end = dt.datetime.now()
+        start = end - dt.timedelta(days = years * 365)  # Sets start date based on user input
 
-# Setting up path to save the csv file
-output_directory = r"data"
-output_filename = "stock_data.csv"
-full_path = os.path.join(output_directory, output_filename)
-os.makedirs(output_directory, exist_ok=True)
+        # List of stock tickers to get data from
+        stockList = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL", "AMZN", "META", "NFLX", "INTC", "AMD"]
 
-# Receives user input for number of years to look back
-years = int(input("Enter number of years to look back: "))
+        # Get historical data based on stockList and date range
+        df = yf.download(stockList, start, end)
 
-# Receives user input for stock ticker
-ticker = input("Enter stock ticker: ")
+        return df
+    
+    def get_stock_data(self, df, ticker):
+        return df.xs(ticker, axis=1, level=1)
+    
+    def get_stock_info(self, ticker):
+        return
+    
+    def get_financials(self, ticker):
+        return
+    
+    def get_key_metrics(self, ticker):
+        return
+    
+    def get_stock_news(self, ticker, limit):
+        return
+    
+    def create_price_chart(self, df, ticker, years):
+            close = df["Close"]  # could be single ticker or multiple tickers
 
-# Gets stock data
-def get_stock_data(years):
+            fig = go.Figure()
 
-    # Sets start and end dates for historical stock data
-    end = dt.datetime.now()
-    start = end - dt.timedelta(days = years * 365)  # Sets start date based on user input
+            fig.add_trace(go.Scatter(
+                x=close.index,
+                y=close.values,
+                mode='lines',
+                name=close.name
+            ))
 
-    # List of stock tickers to get data from
-    stockList = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL", "AMZN", "META", "NFLX", "INTC", "AMD"]
+            fig.update_layout(
+                title= str(ticker) + " Stock Price Over Last " + str(years) + " Years",
+                xaxis_title="Date",
+                yaxis_title="Price ($)",
+                width=1000,
+                height=600,
+                xaxis_showgrid=True,
+                yaxis_showgrid=True
+            )
 
-    # Get historical data based on stockList and date range
-    df = yf.download(stockList, start, end)
+            fig.show()
 
-    return df
+    def save_to_csv(self, df, filename):
+        return
 
-# Gets data for a single stock
-def get_single_stock_data(df, ticker: str):
-    return df.xs(ticker, axis=1, level=1)
+def main():
+    stocks = StockDataService("data/")
 
-# Creates a plotly (interactive chart)
-def get_plot(df, years, ticker):
-    close = df["Close"]  # could be single ticker or multiple tickers
+    years = int(input("Enter number of years to look back: "))
+    ticker = input("Enter stock ticker: ")
 
-    fig = go.Figure()
+    df = stocks.get_historical_prices(years)
+    df_stock = stocks.get_stock_data(df, ticker)
+    stocks.create_price_chart(df_stock, years, ticker)
 
-    fig.add_trace(go.Scatter(
-        x=close.index,
-        y=close.values,
-        mode='lines',
-        name=close.name
-    ))
-
-    fig.update_layout(
-        title= str(ticker) + " Stock Price Over Last " + str(years) + " Years",
-        xaxis_title="Date",
-        yaxis_title="Price ($)",
-        width=1000,
-        height=600,
-        xaxis_showgrid=True,
-        yaxis_showgrid=True
-    )
-
-    fig.show()
-
-
-df = get_stock_data(years)
-df_stock = get_single_stock_data(df, ticker)
-get_plot(df_stock, years, ticker)
-
-# Write the DataFrame to CSV
-df_stock.to_csv(full_path, index=False) 
-
-print(f"DataFrame saved to: {full_path}")
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
