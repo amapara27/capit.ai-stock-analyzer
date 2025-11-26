@@ -21,20 +21,58 @@ class StockDataService():
 
         # Get historical data based on stockList and date range
         df = yf.download(stockList, start, end)
+        df.to_csv("data/all_prices.csv", index=False)
 
         return df
     
-    def get_stock_data(self, df, ticker):
-        return df.xs(ticker, axis=1, level=1)
+    def get_single_stock_prices(self, df, ticker):
+        df = df.xs(ticker, axis=1, level=1)
+        df.to_csv("data/historical_prices.csv", index=False)
+
+        return df
     
     def get_stock_info(self, ticker):
         return
     
-    def get_financials(self, ticker):
+    def get_metrics(self, ticker):
         return
     
-    def get_key_metrics(self, ticker):
-        return
+    def get_financials(self, ticker_sym):
+        ticker = yf.Ticker(ticker_sym)
+
+        income_stmt = ticker.income_stmt
+        cashflow = ticker.cashflow
+        balance_sheet = ticker.balance_sheet
+
+        income_stmt.index = [f"IS_{idx}" for idx in income_stmt.index]
+        balance_sheet.index = [f"BS_{idx}" for idx in balance_sheet.index]
+        cashflow.index = [f"CF_{idx}" for idx in cashflow.index]
+
+        financials = pd.concat([income_stmt, cashflow, balance_sheet])
+        financials = financials.T 
+        financials.index.name = "Date"
+
+        # Optimizes data format for better RAG readability
+        if financials is not None and not financials.empty:
+            financials = financials.reset_index()
+            # Handle case where index might not be named 'Date'
+            if 'Date' not in financials.columns:
+                 financials = financials.rename(columns={'index': 'Date'})
+
+            # 2. Add the missing 'Ticker' column (The Fix)
+            financials['Ticker'] = ticker_sym
+
+            # 3. Melt: We removed 'Statement_Type' from id_vars because it doesn't exist yet
+            financials = financials.melt(id_vars=['Date', 'Ticker'], 
+                                         var_name='Financial', 
+                                         value_name='Value')
+            
+            # 4. Create 'Statement_Type' by splitting the prefix (IS_, BS_, CF_)
+            # This extracts "IS" from "IS_TotalRevenue"
+            financials['Statement_Type'] = financials['Financial'].apply(lambda x: x.split('_')[0])
+        
+        financials.to_csv("data/financials.csv", index=False)
+        return financials
     
     def get_stock_news(self, ticker_sym):
         ticker = yf.Ticker(ticker_sym)
@@ -53,7 +91,7 @@ class StockDataService():
             elif 'clickThroughUrl' in content:
                 url = content['clickThroughUrl'].get('url')
             else:
-                url = item.get('link') # Fallback to old format
+                url = item.get('link')
 
             title = content.get('title') if 'title' in content else item.get('title')
             pub_time = content.get('pubDate') if 'pubDate' in content else item.get('providerPublishTime')
@@ -114,22 +152,21 @@ class StockDataService():
 
             fig.show()
 
-    def save_to_csv(self, df):
-        df.to_csv(self.full_path, index=False)
+    # def save_to_csv(self, df):
+    #     df.to_csv(self.full_path, index=False)
 
 def main():
     service = StockDataService("data/", "stock_data.csv")
 
-    # years = int(input("Enter number of years to look back: "))
-    # ticker = input("Enter stock ticker: ")
+    years = int(input("Enter number of years to look back: "))
+    ticker = input("Enter stock ticker: ")
 
-    # df = service.get_historical_prices(years)
-    # df_stock = service.get_stock_data(df, ticker)
-    # service.create_price_chart(df_stock, years, ticker)
+    all_stocks = service.get_historical_prices(years)
 
-    # service.save_to_csv(df_stock)
-
-    documents = service.get_stock_news("NVDA")
+    single_stock_prices = service.get_single_stock_prices(all_stocks, ticker)
+    service.create_price_chart(single_stock_prices, years, ticker)
+    documents = service.get_stock_news(ticker)
+    df_metrics = service.get_financials(ticker)
 
     for doc in documents:
         print(f"Content: {doc['text']}")
