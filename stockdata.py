@@ -59,7 +59,7 @@ class StockDataService():
             if 'Date' not in financials.columns:
                  financials = financials.rename(columns={'index': 'Date'})
 
-            # 2. Add the missing 'Ticker' column (The Fix)
+            # 2. Add the 'Ticker' column 
             financials['Ticker'] = ticker_sym
 
             # 3. Melt: We removed 'Statement_Type' from id_vars because it doesn't exist yet
