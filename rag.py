@@ -3,6 +3,8 @@ load_dotenv()
 
 import os
 import pandas as pd
+import asyncio
+import logging
 
 from prompts import NEW_PROMPT, INSTRUCTION_PROMPT, CONTEXT, TOOL_DESCRIPTIONS
 
@@ -10,18 +12,16 @@ from llama_index.experimental.query_engine import PandasQueryEngine
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core.agent import ReActAgent
 from llama_index.llms.openai import OpenAI
+from llama_index.llms.anthropic import Anthropic
 from llama_index.core.agent.workflow import AgentWorkflow
 from llama_index.core import VectorStoreIndex
-
-import asyncio
-import logging
 
 from stockdata import StockDataService
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 class StockAnalyzerAgent:
-    def __init__(self, model="gpt-3.5-turbo", verbose=False):
+    def __init__(self, model, verbose=False):
         self.model = model
         self.verbose = verbose
         self.agent = None
@@ -125,10 +125,6 @@ class StockAnalyzerAgent:
             except:
                 pass
 
-            # Fallback to environment variable or prompt user
-            if not ticker:
-                ticker = os.getenv("STOCK_TICKER")
-
             if not ticker:
                 ticker = input("Enter the stock ticker for news analysis (must match the ticker used in stockdata.py): ").upper()
 
@@ -161,7 +157,13 @@ class StockAnalyzerAgent:
 
     def initialize(self):
         tools = self.build_tools()
-        llm = OpenAI(model=self.model)
+
+        # Auto-detect model provider based on model name
+        if self.model.startswith("claude"):
+            llm = Anthropic(model=self.model)
+        else:
+            llm = OpenAI(model=self.model)
+
         self.agent = ReActAgent(tools=tools, llm=llm, verbose=self.verbose, context=CONTEXT)
         self.workflow = AgentWorkflow([self.agent])
         return self
@@ -173,7 +175,8 @@ class StockAnalyzerAgent:
         return result
 
 async def main():
-    agent = StockAnalyzerAgent()
+    model = "claude-sonnet-4-5-20250929"
+    agent = StockAnalyzerAgent(model)
     agent.initialize()
 
     while True:

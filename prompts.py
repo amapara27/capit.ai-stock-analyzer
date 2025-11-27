@@ -8,7 +8,8 @@ INSTRUCTION_PROMPT = """\
     4. PRINT ONLY THE EXPRESSION.
     5. Do not quote the expression.
     6. Do not use statements like assignments (=) or imports. Only use expressions that return a value.
-    7. The dataframe is already loaded as `df`. Do not try to read CSV files."""
+    7. The dataframe is already loaded as `df`. Do not try to read CSV files.
+    8. ALWAYS use .iloc[] for positional indexing or .loc[] for label-based indexing. NEVER use direct bracket notation like df['col'][-1]."""
 
 # Specify context for agent to know what data it is working with - templating what we want prompt to look like
 NEW_PROMPT = PromptTemplate(
@@ -26,7 +27,11 @@ NEW_PROMPT = PromptTemplate(
     - df['Close'].mean()
     - df[df['Volume'] > 1000000]
     - df.describe()
-    - df['Close'].iloc[-1]
+    - df['Close'].iloc[-1]  # Use .iloc for index-based access, NOT df['Close'][-1]
+    - df['Close'].tail(1).values[0]  # Alternative for getting last value
+    - df.loc[df.index[-1], 'Close']  # Use .loc for label-based access
+
+    IMPORTANT: Always use .iloc[] or .loc[] for positional/label access. Never use direct bracket indexing like df['column'][-1].
 
     Expression: """
 )
@@ -129,6 +134,8 @@ TOOL_DESCRIPTIONS = {
     Combine with price data to explain:
     - "Price jumped 10% on [date] coinciding with positive earnings news"
     - "Recent headlines suggest concerns about [issue]"
+
+    "When referencing news sentiment, you MUST cite the specific headline and publisher. Do not make general statements like 'news is positive' without proof."
     """
 }
 

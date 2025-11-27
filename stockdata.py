@@ -31,7 +31,7 @@ class StockDataService():
     # Uses historical prices to get single stock prices (will likely refactor to just use yfinance to create a whole new df - not using a previous one)
     def get_single_stock_prices(self, df, ticker):
         df = df.xs(ticker, axis=1, level=1)
-        df.to_csv("data/historical_prices.csv", index=False)
+        df.to_csv("data/historical_prices.csv")  # Keep index=True (default) to preserve Date column
 
         return df
     
@@ -146,7 +146,7 @@ class StockDataService():
             if isinstance(pub_time, (int, float)):
                 readable_date = dt.fromtimestamp(pub_time).strftime('%Y-%m-%d %H:%M:%S')
             elif isinstance(pub_time, str):
-                readable_date = pub_time # Already a string
+                readable_date = pub_time
             else:
                 readable_date = "Unknown"
 
