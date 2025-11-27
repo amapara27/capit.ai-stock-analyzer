@@ -171,6 +171,9 @@ class StockDataService():
 
             rag_docs.append(doc)
 
+        news = pd.DataFrame(rag_docs)
+        news.to_csv("data/news.csv", index=False)
+
         return rag_docs
             
     # Creates a viewable price chart
