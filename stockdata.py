@@ -4,12 +4,13 @@ import datetime as dt
 import yfinance as yf
 import plotly.graph_objects as go
 import os
+import uuid
+
+from llama_index.core import Document
 
 class StockDataService():
-    def __init__(self, output_dir, output_filename):
+    def __init__(self, output_dir):
         self.output_dir = output_dir
-        self.output_filename = "stock_data.csv"
-        self.full_path = os.path.join(output_dir, output_filename)
         os.makedirs(output_dir, exist_ok=True)
 
     # Fetches historical price for several stocks
@@ -120,12 +121,12 @@ class StockDataService():
         return financials
     
     # Gets news on the stock
-    def get_stock_news(self, ticker_sym):
+    def get_news(self, ticker_sym):
         ticker = yf.Ticker(ticker_sym)
-
         news = ticker.news
 
         rag_docs = []
+        news_csv = []
 
         for item in news:
             content = item.get('content', {})
@@ -155,24 +156,31 @@ class StockDataService():
             text_content = f"Title: {title}\nPublisher: {item.get('publisher', 'Yahoo Finance')}"
 
             metadata = {
-            "source": "yahoo_finance",
-            "ticker": ticker_sym,
-            "url": item.get('link'),
-            "published_at": readable_date,
-            "type": item.get('type', 'news'),
-            "provider_uuid": item.get('uuid')
+                "ticker": ticker_sym,
+                "url": url,
+                "published_at": readable_date,
+                "type": item.get('type', 'news'),
             }
 
-            doc = {
-            "id": item.get('uuid'),
-            "text": text_content,
-            "metadata": metadata
-            }
+            doc_id = item.get('uuid')
+            if not doc_id:
+                doc_id = str(uuid.uuid4())
+
+            doc = Document(
+                text_content=content,
+                metadata=metadata,
+                id_=doc_id
+            )
 
             rag_docs.append(doc)
 
-        news = pd.DataFrame(rag_docs)
-        news.to_csv("data/news.csv", index=False)
+            # Backup CSV
+            csv_row = {"text": text_content}
+            csv_row.update(metadata)
+            news_csv.append(csv_row)
+
+        if news_csv:
+            pd.DataFrame(news_csv).to_csv("data/news.csv", index=False)
 
         return rag_docs
             
@@ -202,7 +210,7 @@ class StockDataService():
             fig.show()
 
 def main():
-    service = StockDataService("data/", "stock_data.csv")
+    service = StockDataService("data/")
 
     years = int(input("Enter number of years to look back: "))
     ticker = input("Enter stock ticker: ")
@@ -212,15 +220,10 @@ def main():
     single_stock_prices = service.get_single_stock_prices(all_stocks, ticker)
     service.create_price_chart(single_stock_prices, ticker, years)
 
-    documents = service.get_stock_news(ticker)
+    documents = service.get_news(ticker)
     df_financials = service.get_financials(ticker)
     df_info = service.get_info(ticker)
     df_metrics = service.get_metrics(df_info)
-
-    for doc in documents:
-        print(f"Content: {doc['text']}")
-        print(f"Metadata: {doc['metadata']}")
-        print("-" * 30)
 
 if __name__ == "__main__":
     main()

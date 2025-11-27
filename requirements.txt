@@ -1,0 +1,20 @@
+# Core dependencies for Capit.ai
+
+# Data fetching and processing
+yfinance>=0.2.40
+pandas>=2.0.0
+numpy>=1.24.0
+
+# RAG framework and LLM
+llama-index>=0.10.0
+llama-index-experimental>=0.1.0
+openai>=1.0.0
+
+# Visualization
+plotly>=5.18.0
+
+# Utilities
+python-dotenv>=1.0.0
+
+# Optional: for faster vector operations
+# faiss-cpu>=1.7.4
