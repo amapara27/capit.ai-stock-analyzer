@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import datetime as dt
 import yfinance as yf
 import plotly.graph_objects as go
@@ -10,7 +11,8 @@ class StockDataService():
         self.output_filename = "stock_data.csv"
         self.full_path = os.path.join(output_dir, output_filename)
         os.makedirs(output_dir, exist_ok=True)
-    
+
+    # Fetches historical price for several stocks
     def get_historical_prices(self, years):
         # Sets start and end dates for historical stock data
         end = dt.datetime.now()
@@ -25,18 +27,61 @@ class StockDataService():
 
         return df
     
+    # Uses historical prices to get single stock prices (will likely refactor to just use yfinance to create a whole new df - not using a previous one)
     def get_single_stock_prices(self, df, ticker):
         df = df.xs(ticker, axis=1, level=1)
         df.to_csv("data/historical_prices.csv", index=False)
 
         return df
     
-    def get_stock_info(self, ticker):
-        return
+    # Gets info on the stock
+    def get_info(self, ticker_sym):
+        ticker = yf.Ticker(ticker_sym)
+
+        info_dict = ticker.info
+
+        info = pd.DataFrame([info_dict])
+        info.to_csv("data/info.csv", index=False)
+
+        return info
     
-    def get_metrics(self, ticker):
-        return
-    
+    # Uses info df to get certain metrics
+    def get_metrics(self, info):
+
+        # Fetch metrics from the info df - drop useless columns
+        columns_to_drop = [
+        # --- Contact & Location (Not useful for math) ---
+        'address1', 'city', 'state', 'zip', 'country', 'phone', 'website', 'irWebsite',
+        
+        # --- Text Blobs (Save these for a separate "Summary" tool, not Metrics) ---
+        'longBusinessSummary', 'companyOfficers', 'executiveTeam',
+        
+        # --- Redundant Classifications (Keep 'industry' and 'sector', drop the keys) ---
+        'industryKey', 'industryDisp', 'sectorKey', 'sectorDisp', 'typeDisp',
+        
+        # --- API/System Metadata (Useless for analysis) ---
+        'maxAge', 'priceHint', 'quoteType', 'quoteSourceName', 'triggerable', 
+        'customPriceAlertConfidence', 'sourceInterval', 'exchangeDataDelayedBy', 
+        'gmtOffSetMilliseconds', 'exchangeTimezoneName', 'exchangeTimezoneShortName', 
+        'marketState', 'esgPopulated', 'tradeable', 'cryptoTradeable', 
+        'hasPrePostMarketData', 'firstTradeDateMilliseconds', 'messageBoardId',
+        'language', 'region', 'fullExchangeName', 'displayName', 'market',
+        
+        # --- Real-Time Noise (Bid/Ask are too volatile for general analysis) ---
+        'bid', 'ask', 'bidSize', 'askSize', 
+        
+        # --- Redundant Price Columns (Keep 'currentPrice' or 'regularMarketPrice') ---
+        'regularMarketPreviousClose', 'regularMarketOpen', 'regularMarketDayLow', 
+        'regularMarketDayHigh', 'regularMarketVolume', 'preMarketPrice', 'postMarketPrice',
+        'postMarketChange', 'postMarketChangePercent', 'postMarketTime', 'regularMarketTime'
+    ]   
+        
+        metrics = info.drop(columns=columns_to_drop, errors='ignore')
+        metrics.to_csv("data/metrics.csv", index=False)
+
+        return metrics
+
+    # Gets financial documents (Balance Sheet, Income Statement, Cashflow)  
     def get_financials(self, ticker_sym):
         ticker = yf.Ticker(ticker_sym)
 
@@ -74,6 +119,7 @@ class StockDataService():
         financials.to_csv("data/financials.csv", index=False)
         return financials
     
+    # Gets news on the stock
     def get_stock_news(self, ticker_sym):
         ticker = yf.Ticker(ticker_sym)
 
@@ -126,8 +172,8 @@ class StockDataService():
             rag_docs.append(doc)
 
         return rag_docs
-
             
+    # Creates a viewable price chart
     def create_price_chart(self, df, ticker, years):
             close = df["Close"]  # could be single ticker or multiple tickers
 
@@ -152,9 +198,6 @@ class StockDataService():
 
             fig.show()
 
-    # def save_to_csv(self, df):
-    #     df.to_csv(self.full_path, index=False)
-
 def main():
     service = StockDataService("data/", "stock_data.csv")
 
@@ -164,9 +207,12 @@ def main():
     all_stocks = service.get_historical_prices(years)
 
     single_stock_prices = service.get_single_stock_prices(all_stocks, ticker)
-    service.create_price_chart(single_stock_prices, years, ticker)
+    service.create_price_chart(single_stock_prices, ticker, years)
+
     documents = service.get_stock_news(ticker)
-    df_metrics = service.get_financials(ticker)
+    df_financials = service.get_financials(ticker)
+    df_info = service.get_info(ticker)
+    df_metrics = service.get_metrics(df_info)
 
     for doc in documents:
         print(f"Content: {doc['text']}")
