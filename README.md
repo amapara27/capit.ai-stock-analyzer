@@ -1,4 +1,4 @@
-# Capit.ai 🤖📈
+# Capit.ai
 
 An AI-powered stock analysis assistant that combines quantitative data, financial statements, valuation metrics, and news sentiment to provide comprehensive investment insights.
 
@@ -21,7 +21,9 @@ The agent synthesizes data from these sources to provide insights like:
 * **Multi-source analysis:** Combines price data, financials, metrics, and news
 * **Semantic search:** Vector store indexes for intelligent news analysis
 * **Insightful synthesis:** Goes beyond data retrieval to provide "so what?" analysis
-* **Extensible:** Built with classes for easy integration into web apps or APIs
+* **Multi-model support:** Works with both OpenAI (GPT) and Anthropic (Claude) models
+* **Interactive CLI:** Real-time question-answering interface
+* **Price visualization:** Interactive Plotly charts for stock price history
 
 ---
 
@@ -29,7 +31,7 @@ The agent synthesizes data from these sources to provide insights like:
 
 ### Prerequisites
 * Python 3.8+
-* OpenAI API key (for GPT-3.5-turbo or GPT-4)
+* OpenAI API key and/or Anthropic API key
 * Internet connection (for fetching yfinance data)
 
 ### Installation
@@ -48,23 +50,42 @@ The agent synthesizes data from these sources to provide insights like:
     Required packages:
     - `yfinance` - Stock data API
     - `llama-index` - RAG framework
+    - `llama-index-llms-anthropic` - Anthropic/Claude integration
     - `pandas`, `numpy` - Data processing
     - `plotly` - Interactive charts
     - `python-dotenv` - Environment variables
-    - `openai` - LLM API
+    - `openai` - OpenAI API
+    - `anthropic` - Anthropic API
 
 3.  **Set up environment variables:**
     Create a `.env` file in the project root:
     ```bash
     OPENAI_API_KEY=your_openai_api_key_here
-    STOCK_TICKER=AAPL  # Optional: default ticker for news analysis
+    ANTHROPIC_API_KEY=your_anthropic_api_key_here
     ```
 
 ---
 
 ## Usage
 
-### Step 1: Generate Stock Data
+### Option 1: Run via main.py (Recommended)
+
+The main entry point combines data fetching and analysis in one workflow:
+
+```bash
+python main.py
+```
+
+**What it does:**
+- Prompts you for years to look back (e.g., `2`)
+- Prompts you for a ticker symbol (e.g., `NVDA`)
+- Fetches historical prices, financials, metrics, and news
+- Displays an interactive price chart
+- Starts the analysis agent for Q&A
+
+### Option 2: Run Separately
+
+#### Step 1: Generate Stock Data
 
 Run `stockdata.py` to fetch and process stock data:
 
@@ -76,13 +97,16 @@ python stockdata.py
 - Prompts you for years to look back (e.g., `2`)
 - Prompts you for a ticker symbol (e.g., `NVDA`)
 - Fetches historical prices, financials, metrics, and news
+- Displays an interactive price chart
 - Saves to CSV files in `data/` directory:
-  - `historical_prices.csv` - OHLCV data
+  - `historical_prices.csv` - OHLCV data for selected ticker
+  - `all_prices.csv` - OHLCV data for top 10 tech stocks
   - `financials.csv` - Income statement, balance sheet, cash flow
   - `metrics.csv` - P/E, ROE, margins, debt ratios, etc.
+  - `info.csv` - Full company information
   - `news.csv` - Recent headlines and metadata
 
-### Step 2: Run the Analysis Agent
+#### Step 2: Run the Analysis Agent
 
 Start the interactive CLI agent:
 
@@ -97,16 +121,22 @@ python rag.py
 - "Is the stock overvalued based on fundamentals?"
 - "Calculate volatility and compare to recent highs"
 
-**How it works:**
-- The agent uses 4 tools to analyze your query:
-  - `parse_price_data` - Queries historical price CSV
-  - `parse_financial_data` - Queries financials CSV
-  - `parse_metrics` - Queries metrics CSV
-  - `parse_news` - Semantic search over news vector index
-- It synthesizes insights across all data sources
-- Provides context and "so what?" analysis, not just raw numbers
-
 Type `q` to quit.
+
+---
+
+## Analysis Tools
+
+The agent uses 4 specialized tools to analyze your queries:
+
+| Tool | Description | Data Source |
+|------|-------------|-------------|
+| `parse_price_data` | Analyzes price trends, volatility, moving averages, volume patterns | `historical_prices.csv` |
+| `parse_financial_data` | Examines income statements, balance sheets, cash flow statements | `financials.csv` |
+| `parse_metrics` | Evaluates P/E, PEG, ROE, margins, debt ratios, and other KPIs | `metrics.csv` |
+| `parse_news` | Semantic search over recent news headlines via vector store index | yfinance news API |
+
+The agent synthesizes insights across all data sources and provides context with every analysis, answering the "so what?" rather than just reporting raw numbers.
 
 ---
 
@@ -114,13 +144,17 @@ Type `q` to quit.
 
 ```
 capit.ai/
+├── main.py               # Main entry point (data fetch + analysis)
 ├── stockdata.py          # Data fetching service (StockDataService class)
 ├── rag.py                # Analysis agent (StockAnalyzerAgent class)
 ├── prompts.py            # Agent prompts and tool descriptions
+├── requirements.txt      # Python dependencies
 ├── data/                 # Generated CSV files (gitignored)
+│   ├── all_prices.csv
 │   ├── historical_prices.csv
 │   ├── financials.csv
 │   ├── metrics.csv
+│   ├── info.csv
 │   └── news.csv
 ├── .env                  # API keys (gitignored)
 └── README.md
@@ -131,16 +165,14 @@ capit.ai/
 ## Example Workflow
 
 ```bash
-# 1. Fetch data for NVDA over 2 years
-$ python stockdata.py
+# 1. Start the application
+$ python main.py
 Enter number of years to look back: 2
 Enter stock ticker: NVDA
 
-# 2. Set ticker for news analysis (optional)
-$ export STOCK_TICKER=NVDA
+# [Interactive price chart opens in browser]
+# [Agent initializes with your data]
 
-# 3. Start the agent
-$ python rag.py
 Enter a prompt (or q to quit): Analyze NVDA's valuation and recent performance
 
 # Agent response:
@@ -154,38 +186,19 @@ Enter a prompt (or q to quit): Analyze NVDA's valuation and recent performance
 
 ---
 
-## 🗺️ Roadmap
+## Supported Models
 
-### Phase 1: Backend Foundation ✅
-- [x] Refactor into reusable classes (`StockDataService`, `StockAnalyzerAgent`)
-- [x] Add 4 analysis tools (price, financials, metrics, news)
-- [x] Implement vector store for news analysis
-- [x] Create comprehensive prompts for insightful synthesis
+The agent auto-detects the model provider based on the model name:
 
-### Phase 2: Real-time News & Sentiment (In Progress)
-- [x] Integrate yfinance news API
-- [x] Vector store indexing for semantic search
-- [ ] Sentiment analysis with LLM scoring
-- [ ] External news APIs (Alpha Vantage, Finnhub)
+| Provider | Example Models |
+|----------|----------------|
+| Anthropic | `claude-sonnet-4-5-20250929`, `claude-opus-4-5-20251101` |
+| OpenAI | `gpt-4`, `gpt-3.5-turbo` |
 
-### Phase 3: Quantitative Models
-- [ ] Technical indicators (RSI, MACD, Bollinger Bands)
-- [ ] Volatility metrics (Beta, VaR, Sharpe ratio)
-- [ ] Correlation analysis vs benchmarks
-
-### Phase 4: Web Dashboard
-- [ ] FastAPI backend with REST endpoints
-- [ ] React/Next.js frontend
-- [ ] Interactive Plotly charts
-- [ ] Real-time chat interface
-
-### Phase 5: Advanced Features
-- [ ] Portfolio analysis and risk assessment
-- [ ] Monte Carlo simulations
-- [ ] Backtesting framework
+Configure the model in `main.py` or `rag.py` by changing the `model` variable.
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
