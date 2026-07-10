@@ -1,209 +1,137 @@
 # Pulse Trading Assistant
 
-An AI-powered stock analysis assistant that combines quantitative data, financial statements, valuation metrics, and news sentiment to provide comprehensive investment insights.
+An autonomous trading research agent built on **LangGraph** and **Claude**. It researches the market daily, compares your portfolio to the benchmark, screens small/mid-caps for asymmetric growth, and writes a dated research report — plus an interactive analyst chat over all the same data.
 
 ---
 
 ## Demo
 
 https://x.com/akmapara/status/2010825574101479671?s=20
+
 ---
 
-## About The Project
+## How it works
 
-Capit.ai is a multi-tool RAG (Retrieval-Augmented Generation) agent that analyzes stocks across four dimensions:
+Two LangGraph modes (see `LEARNING.md` for a guided tour of the code):
 
-1. **Price Analysis** - Historical trends, volatility, and technical patterns
-2. **Financial Health** - Revenue growth, margins, cash flow from financial statements
-3. **Valuation Metrics** - P/E ratios, debt levels, profitability indicators
-4. **News Sentiment** - Recent headlines and market catalysts
+**1. Report pipeline** (`python main.py report`) — a deterministic `StateGraph`. Data fetching is pure Python (zero LLM tokens); only two nodes call Claude:
 
-The agent synthesizes data from these sources to provide insights like:
-- "AAPL's P/E of 28 is elevated, but justified by 15% revenue growth and strong free cash flow"
-- "Recent AI product launch news explains the 10% price spike last week"
+```
+START → fetch_market → fetch_news → portfolio → screen
+screen ──candidates?──> gems ──> summarize → write_report → END
+            └── none ────────────────↑
+```
 
-### Key Features
-* **Multi-source analysis:** Combines price data, financials, metrics, and news
-* **Semantic search:** Vector store indexes for intelligent news analysis
-* **Insightful synthesis:** Goes beyond data retrieval to provide "so what?" analysis
-* **Multi-model support:** Works with both OpenAI (GPT) and Anthropic (Claude) models
-* **Interactive CLI:** Real-time question-answering interface
-* **Price visualization:** Interactive Plotly charts for stock price history
+Output: `reports/YYYY-MM-DD.md` with Market Summary, Portfolio Review, Hidden Gems, and Sources. Cron-ready — schedule it and get a report every morning.
+
+**2. Analyst chat** (`python main.py chat`) — a ReAct agent with tools over prices, financials, metrics, your portfolio, the gem screener, and semantic news search. Conversation memory persists across turns.
+
+### Data & storage
+- **Prices/financials/metrics:** yfinance
+- **News:** Massive (ex-Polygon.io) if `MASSIVE_API_KEY` is set, otherwise yfinance — stored in a persistent **Chroma** vector DB (`chroma/`) with URL-hash dedup, so news accumulates and stays searchable across days. Embeddings are local (ONNX MiniLM) — no OpenAI key needed.
+- **Portfolio:** edit `portfolio.json` (`ticker`, `shares`, `cost_basis`)
+- **Gem screen:** hand-curated small/mid-cap universe in `pulse/config.py` (`CANDIDATES`), filtered by market cap $300M–$10B, revenue growth >15%, PEG <2 or forward P/E <30, gross margin >30%
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-* Python 3.8+
-* OpenAI API key and/or Anthropic API key
-* Internet connection (for fetching yfinance data)
+- Python 3.11 (conda recommended)
+- Anthropic API key
+- Optional: Massive API key (free tier) for richer news
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/capit.ai.git
-    cd capit.ai
-    ```
+```bash
+git clone https://github.com/your-username/pulse-trading-agent.git
+cd pulse-trading-agent
 
-2.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+conda create -n pulse-trading-agent python=3.11 -y
+conda activate pulse-trading-agent
+pip install -r requirements.txt
 
-    Required packages:
-    - `yfinance` - Stock data API
-    - `llama-index` - RAG framework
-    - `llama-index-llms-anthropic` - Anthropic/Claude integration
-    - `pandas`, `numpy` - Data processing
-    - `plotly` - Interactive charts
-    - `python-dotenv` - Environment variables
-    - `openai` - OpenAI API
-    - `anthropic` - Anthropic API
+cp .env.example .env   # then paste in your ANTHROPIC_API_KEY
+```
 
-3.  **Set up environment variables:**
-    Create a `.env` file in the project root:
-    ```bash
-    OPENAI_API_KEY=your_openai_api_key_here
-    ANTHROPIC_API_KEY=your_anthropic_api_key_here
-    ```
+Edit `portfolio.json` with your actual holdings.
+
+> First news run downloads Chroma's ~80MB local embedding model — a one-time wait, not a hang.
 
 ---
 
 ## Usage
 
-### Option 1: Run via main.py (Recommended)
-
-The main entry point combines data fetching and analysis in one workflow:
-
 ```bash
-python main.py
+python main.py report            # run the daily research pipeline → reports/YYYY-MM-DD.md
+python main.py report --verbose  # same, streaming per-node progress
+python main.py chat              # interactive analyst chat (q to quit)
+python main.py chart NVDA --years 2   # interactive Plotly price chart
 ```
 
-**What it does:**
-- Prompts you for years to look back (e.g., `2`)
-- Prompts you for a ticker symbol (e.g., `NVDA`)
-- Fetches historical prices, financials, metrics, and news
-- Displays an interactive price chart
-- Starts the analysis agent for Q&A
+**Example chat queries:**
+- "How is my portfolio doing vs SPY?"
+- "Which of my holdings had news this week?"
+- "Run the gem screen and tell me which survivor has the best risk/reward"
+- "What's NVDA's P/E and is it justified by growth?"
 
-### Option 2: Run Separately
+### Scheduling the daily report (optional)
 
-#### Step 1: Generate Stock Data
-
-Run `stockdata.py` to fetch and process stock data:
+Any scheduler works — the report command is self-contained:
 
 ```bash
-python stockdata.py
+# cron: weekdays at 7am
+0 7 * * 1-5 cd /path/to/pulse-trading-agent && conda run -n pulse-trading-agent python main.py report
 ```
-
-**What it does:**
-- Prompts you for years to look back (e.g., `2`)
-- Prompts you for a ticker symbol (e.g., `NVDA`)
-- Fetches historical prices, financials, metrics, and news
-- Displays an interactive price chart
-- Saves to CSV files in `data/` directory:
-  - `historical_prices.csv` - OHLCV data for selected ticker
-  - `all_prices.csv` - OHLCV data for top 10 tech stocks
-  - `financials.csv` - Income statement, balance sheet, cash flow
-  - `metrics.csv` - P/E, ROE, margins, debt ratios, etc.
-  - `info.csv` - Full company information
-  - `news.csv` - Recent headlines and metadata
-
-#### Step 2: Run the Analysis Agent
-
-Start the interactive CLI agent:
-
-```bash
-python rag.py
-```
-
-**Example queries:**
-- "What's NVDA's P/E ratio and is it justified by growth?"
-- "Analyze the revenue trend over the last 4 quarters"
-- "What recent news could explain the price movement?"
-- "Is the stock overvalued based on fundamentals?"
-- "Calculate volatility and compare to recent highs"
-
-Type `q` to quit.
 
 ---
 
-## Analysis Tools
+## Chat Tools
 
-The agent uses 4 specialized tools to analyze your queries:
-
-| Tool | Description | Data Source |
-|------|-------------|-------------|
-| `parse_price_data` | Analyzes price trends, volatility, moving averages, volume patterns | `historical_prices.csv` |
-| `parse_financial_data` | Examines income statements, balance sheets, cash flow statements | `financials.csv` |
-| `parse_metrics` | Evaluates P/E, PEG, ROE, margins, debt ratios, and other KPIs | `metrics.csv` |
-| `parse_news` | Semantic search over recent news headlines via vector store index | yfinance news API |
-
-The agent synthesizes insights across all data sources and provides context with every analysis, answering the "so what?" rather than just reporting raw numbers.
+| Tool | Description |
+|------|-------------|
+| `get_price_history` | Price summary: return, high/low, volatility over a period |
+| `get_financials` | Income statement, balance sheet, cash flow |
+| `get_stock_metrics` | P/E, PEG, ROE, margins, debt ratios |
+| `portfolio_summary` | Positions, weights, returns vs SPY, risk flags |
+| `search_stock_news` | Semantic search over the Chroma news store |
+| `run_gem_screen` | Screen the candidate universe for hidden gems |
 
 ---
 
 ## Project Structure
 
 ```
-capit.ai/
-├── main.py               # Main entry point (data fetch + analysis)
-├── stockdata.py          # Data fetching service (StockDataService class)
-├── rag.py                # Analysis agent (StockAnalyzerAgent class)
-├── prompts.py            # Agent prompts and tool descriptions
-├── requirements.txt      # Python dependencies
-├── data/                 # Generated CSV files (gitignored)
-│   ├── all_prices.csv
-│   ├── historical_prices.csv
-│   ├── financials.csv
-│   ├── metrics.csv
-│   ├── info.csv
-│   └── news.csv
-├── .env                  # API keys (gitignored)
-└── README.md
+pulse-trading-agent/
+├── main.py               # CLI: report | chat | chart
+├── portfolio.json        # your holdings
+├── pulse/
+│   ├── config.py         # model, watchlist, gem-screen universe, paths
+│   ├── stockdata.py      # yfinance fetchers (StockDataService)
+│   ├── portfolio.py      # snapshot: returns vs SPY, weights, risk flags
+│   ├── news.py           # Massive/yfinance news + Chroma store & search
+│   ├── screener.py       # hidden-gems screen
+│   ├── graph.py          # LangGraph: report pipeline + chat agent
+│   ├── tools.py          # chat agent @tool functions
+│   └── prompts.py        # system + report prompts
+├── LEARNING.md           # LangGraph concepts mapped to this codebase
+├── reports/              # generated daily reports (gitignored)
+├── chroma/               # persistent news vector DB (gitignored)
+├── data/                 # CSV cache (gitignored)
+└── .env                  # API keys (gitignored)
 ```
 
 ---
 
-## Example Workflow
+## Configuration
 
-```bash
-# 1. Start the application
-$ python main.py
-Enter number of years to look back: 2
-Enter stock ticker: NVDA
-
-# [Interactive price chart opens in browser]
-# [Agent initializes with your data]
-
-Enter a prompt (or q to quit): Analyze NVDA's valuation and recent performance
-
-# Agent response:
-# "NVDA's P/E ratio of 45 is elevated compared to the tech sector average of 30.
-# However, this premium is justified by exceptional revenue growth of 265% YoY,
-# driven by AI chip demand. Recent news shows the company announced new data center
-# partnerships, which explains the 12% price increase over the past week.
-# The stock trades at a PEG ratio of 1.2, suggesting reasonable valuation given growth.
-# Note: This is not financial advice."
-```
-
----
-
-## Supported Models
-
-The agent auto-detects the model provider based on the model name:
-
-| Provider | Example Models |
-|----------|----------------|
-| Anthropic | `claude-sonnet-4-5-20250929`, `claude-opus-4-5-20251101` |
-| OpenAI | `gpt-4`, `gpt-3.5-turbo` |
-
-Configure the model in `main.py` or `rag.py` by changing the `model` variable.
+- **Model:** defaults to `claude-sonnet-5`; override with `PULSE_MODEL` in `.env`
+- **Watchlist / candidates:** edit `WATCHLIST` and `CANDIDATES` in `pulse/config.py`
 
 ---
 
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+*Pulse analyzes historical data only. Nothing it produces is financial advice.*

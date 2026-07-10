@@ -1,35 +1,72 @@
-import asyncio
+import argparse
 
-from rag import StockAnalyzerAgent
-from stockdata import StockDataService
+from dotenv import load_dotenv
 
-async def main():
-    service = StockDataService("data/")
+load_dotenv()
 
-    years = int(input("Enter number of years to look back: "))
-    ticker = input("Enter stock ticker: ")
 
-    all_stocks = service.get_historical_prices(years)
+def cmd_report(args):
+    from pulse.graph import build_report_graph
+    graph = build_report_graph()
+    if args.verbose:
+        state = {}
+        for update in graph.stream({}, stream_mode="updates"):
+            for node, out in update.items():
+                print(f"[{node}] -> {list(out.keys())}")
+                state.update(out)
+    else:
+        state = graph.invoke({})
+    print(f"Report written to {state['report_path']}")
 
-    single_stock_prices = service.get_single_stock_prices(all_stocks, ticker)
-    service.create_price_chart(single_stock_prices, ticker, years)
 
-    documents = service.get_news(ticker)
-    df_financials = service.get_financials(ticker)
-    df_info = service.get_info(ticker)
-    df_metrics = service.get_metrics(df_info)
+def cmd_chat(args):
+    from langgraph.checkpoint.memory import MemorySaver
+    from pulse.graph import build_chat_agent
 
-    model = "claude-sonnet-4-5-20250929"
-    agent = StockAnalyzerAgent(model)
-    agent.initialize()
-
+    agent = build_chat_agent(MemorySaver())
+    config = {"configurable": {"thread_id": "cli"}}  # one thread = memory across turns
+    print("Pulse chat — ask about your portfolio, stocks, or news (q to quit)")
     while True:
-        prompt = input("Enter a prompt (or q to quit): ")
-        if prompt.lower() == 'q':
+        try:
+            prompt = input("\n> ")
+        except EOFError:
             break
-        result = await agent.analyze(prompt)
-        print(result)
+        if prompt.strip().lower() == "q":
+            break
+        for chunk, meta in agent.stream({"messages": [("user", prompt)]},
+                                        config=config, stream_mode="messages"):
+            if meta.get("langgraph_node") == "agent" and chunk.text():
+                print(chunk.text(), end="", flush=True)
+        print()
+
+
+def cmd_chart(args):
+    from pulse.config import DATA_DIR
+    from pulse.stockdata import StockDataService
+    service = StockDataService(DATA_DIR)
+    df = service.get_historical_prices(args.years, tickers=[args.ticker])
+    service.create_price_chart(df.xs(args.ticker, axis=1, level=1), args.ticker, args.years)
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="pulse", description="Pulse Trading Assistant")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_report = sub.add_parser("report", help="Run the daily research pipeline")
+    p_report.add_argument("--verbose", action="store_true", help="Stream per-node progress")
+    p_report.set_defaults(func=cmd_report)
+
+    p_chat = sub.add_parser("chat", help="Interactive analyst chat")
+    p_chat.set_defaults(func=cmd_chat)
+
+    p_chart = sub.add_parser("chart", help="Open an interactive price chart")
+    p_chart.add_argument("ticker")
+    p_chart.add_argument("--years", type=int, default=1)
+    p_chart.set_defaults(func=cmd_chart)
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

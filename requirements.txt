@@ -1,22 +1,10 @@
-# Core dependencies for Capit.ai
-
-# Data fetching and processing
+# Pulse Trading Assistant
 yfinance>=0.2.40
 pandas>=2.0.0
 numpy>=1.24.0
-
-# RAG framework and LLM
-llama-index>=0.10.0
-llama-index-experimental>=0.1.0
-openai>=1.0.0
-llama-index-llms-anthropic>=0.1.0
-anthropic>=0.18.0
-
-# Visualization
 plotly>=5.18.0
-
-# Utilities
 python-dotenv>=1.0.0
-
-# Optional: for faster vector operations
-# faiss-cpu>=1.7.4
+requests>=2.31
+langgraph>=1.0,<2
+langchain-anthropic>=0.3
+chromadb>=1.0
