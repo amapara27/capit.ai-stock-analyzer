@@ -12,7 +12,7 @@ https://x.com/akmapara/status/2010825574101479671?s=20
 
 ## How it works
 
-Two LangGraph modes (see `LEARNING.md` for a guided tour of the code):
+Two LangGraph modes:
 
 **1. Report pipeline** (`python main.py report`) — a deterministic `StateGraph`. Data fetching is pure Python (zero LLM tokens); only two nodes call Claude:
 
